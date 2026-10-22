@@ -113,6 +113,8 @@ mod word_count_ui;
 pub use print_ui::{Handling as PrintHandling, OptionsSource, PrintDraft, PrinterSource, Which as PrintWhich, system_printers};
 mod redact_ui;
 pub use redact_ui::{HiddenDraft, PagesDraft as RedactPagesDraft, RedactPrefs, SearchDraft as RedactSearchDraft, SearchMode as RedactSearchMode};
+pub mod mobile;
+pub use mobile::MobileSheet;
 pub mod i18n;
 
 /// [`PdfCraftApp::date_text`] for callers that already borrow other parts of the app.
@@ -527,6 +529,7 @@ pub struct PdfCraftApp {
     /// The user closed the right panel, so opening a document leaves it closed instead of
     /// showing its comments or bookmarks (#1590). Remembered across restarts.
     pub right_panel_closed: bool,
+    pub mobile_sheet: Option<MobileSheet>,
     pub quick_tool: QuickTool,
     /// The tool to go back to when Space, held for a temporary Hand, is released.
     space_hand: Option<QuickTool>,
@@ -952,6 +955,7 @@ impl PdfCraftApp {
             right_before_read: None,
             comments_panel_closed: false,
             right_panel_closed: false,
+            mobile_sheet: None,
             quick_tool: QuickTool::Select,
             space_hand: None,
             full_screen_tool: None,
@@ -3349,41 +3353,45 @@ impl eframe::App for PdfCraftApp {
             self.finish_render_frame(&ctx);
             return;
         }
-        self.sync_window_frame(&ctx);
-        if self.draws_window_frame() {
-            window_controls::resize_edges(&ctx);
-        }
-        chrome::tab_strip(self, ui);
-        chrome::mode_bar(self, ui);
-        if self.active.is_some() {
-            chrome::right_rail(self, ui);
-            // Read mode hides the tools, not the navigation panes: the rail stays visible
-            // there, so its buttons (Bookmarks, Page thumbnails, ...) must open their panels.
-            // Outside Read mode the docking workspace draws the inspector.
-            if self.mode == Mode::Read && self.right.is_some() {
-                egui::Panel::right("read_right_panel")
-                    .resizable(true)
-                    .default_size(330.0)
-                    .size_range(260.0..=520.0)
-                    .frame(egui::Frame::NONE)
-                    .show(ui, |ui| panels::right_panel(self, ui));
+        if mobile::is_mobile(ui.ctx()) {
+            mobile::show(self, ui);
+        } else {
+            self.sync_window_frame(&ctx);
+            if self.draws_window_frame() {
+                window_controls::resize_edges(&ctx);
             }
-        }
-        let t = theme::Tokens::get(&ctx);
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.pasteboard)).show(ui, |ui| {
-            if self.mode == Mode::Read {
-                match self.active {
-                    None if self.combine_showing() => combine_ui::page(self, ui),
-                    None => home::show(self, ui),
-                    Some(index) => match compare_ui::side_by_side(self, index) {
-                        Some((old, new)) => compare_ui::compare_area(self, old, new, ui),
-                        None => canvas::document_area(self, index, ui),
-                    },
+            chrome::tab_strip(self, ui);
+            chrome::mode_bar(self, ui);
+            if self.active.is_some() {
+                chrome::right_rail(self, ui);
+                // Read mode hides the tools, not the navigation panes: the rail stays visible
+                // there, so its buttons (Bookmarks, Page thumbnails, ...) must open their panels.
+                // Outside Read mode the docking workspace draws the inspector.
+                if self.mode == Mode::Read && self.right.is_some() {
+                    egui::Panel::right("read_right_panel")
+                        .resizable(true)
+                        .default_size(330.0)
+                        .size_range(260.0..=520.0)
+                        .frame(egui::Frame::NONE)
+                        .show(ui, |ui| panels::right_panel(self, ui));
                 }
-            } else {
-                docking::show(self, ui);
             }
-        });
+            let t = theme::Tokens::get(&ctx);
+            egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.pasteboard)).show(ui, |ui| {
+                if self.mode == Mode::Read {
+                    match self.active {
+                        None if self.combine_showing() => combine_ui::page(self, ui),
+                        None => home::show(self, ui),
+                        Some(index) => match compare_ui::side_by_side(self, index) {
+                            Some((old, new)) => compare_ui::compare_area(self, old, new, ui),
+                            None => canvas::document_area(self, index, ui),
+                        },
+                    }
+                } else {
+                    docking::show(self, ui);
+                }
+            });
+        }
         self.process_pending_edits();
         palette::show(self, &ctx);
         dialogs::show(self, &ctx);
