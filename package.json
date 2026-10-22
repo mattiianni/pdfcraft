@@ -1,0 +1,10 @@
+{
+  "name": "pdfcraft-web",
+  "version": "0.11.0",
+  "private": true,
+  "description": "PdfCraft Web & PWA for iOS, iPadOS and Desktop",
+  "scripts": {
+    "build": "bash scripts/vercel-build.sh",
+    "build:local": "bash scripts/build-web.sh"
+  }
+}

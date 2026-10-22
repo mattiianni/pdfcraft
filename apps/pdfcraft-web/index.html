@@ -2,16 +2,129 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>PdfCraft</title>
+    <meta name="description" content="PdfCraft: The PDF workbench; an open-source, modern PDF reader and editor." />
+
+    <!-- iOS / iPadOS PWA meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PdfCraft" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+
+    <!-- Icons & Manifest -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png" />
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#0a7563" />
+
+    <!-- Trunk build directives -->
     <link data-trunk rel="rust" data-wasm-opt="z" />
+    <link data-trunk rel="copy-file" href="manifest.webmanifest" />
+    <link data-trunk rel="copy-file" href="sw.js" />
+    <link data-trunk rel="copy-dir" href="icons" />
+
     <style>
-      html, body { margin: 0; height: 100%; overflow: hidden; background: #f1f1f3; }
-      canvas { width: 100%; height: 100%; display: block; outline: none; }
-      @media (prefers-color-scheme: dark) { html, body { background: #19191c; } }
+      * {
+        box-sizing: border-box;
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        position: fixed;
+        background: #19191c;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        outline: none;
+        touch-action: none;
+      }
+
+      /* Native-like preloader screen */
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #19191c;
+        color: #ffffff;
+        z-index: 9999;
+        transition: opacity 0.35s ease-out, visibility 0.35s ease-out;
+      }
+      #loading.loaded {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .loading-logo {
+        width: 72px;
+        height: 72px;
+        margin-bottom: 24px;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+      .spinner {
+        width: 36px;
+        height: 36px;
+        border: 3px solid rgba(255, 255, 255, 0.12);
+        border-top-color: #12a58a;
+        border-radius: 50%;
+        animation: spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        margin-bottom: 18px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .loading-title {
+        font-size: 19px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+        margin-bottom: 6px;
+        color: #f3f4f6;
+      }
+      .loading-sub {
+        font-size: 13px;
+        color: #9ca3af;
+      }
     </style>
   </head>
   <body>
+    <div id="loading">
+      <img src="icons/icon-192.png" alt="PdfCraft" class="loading-logo" />
+      <div class="spinner"></div>
+      <div class="loading-title">PdfCraft</div>
+      <div class="loading-sub">Caricamento PDF Workbench…</div>
+    </div>
     <canvas id="pdfcraft"></canvas>
+
+    <script>
+      // Register Service Worker for offline PWA support
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch((err) => {
+            console.warn('PdfCraft: ServiceWorker error:', err);
+          });
+        });
+      }
+
+      // Fallback: dismiss loading screen after 5 seconds if not dismissed by WASM
+      setTimeout(() => {
+        const el = document.getElementById('loading');
+        if (el) el.classList.add('loaded');
+      }, 5000);
+    </script>
   </body>
 </html>

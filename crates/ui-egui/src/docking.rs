@@ -396,6 +396,15 @@ pub fn show(app: &mut crate::PdfCraftApp, ui: &mut egui::Ui) {
         // Availability is a render projection: the saved group, selection and width survive Home.
         let _ = rendered.apply(Action::Close { panel: Panel::Inspector });
     }
+    // On compact screens (phones / narrow iPad split view), ensure Canvas has enough room:
+    if ui.available_width() < 720.0 {
+        if rendered.contains(&Panel::Tools) && rendered.contains(&Panel::Inspector) {
+            let _ = rendered.apply(Action::Close { panel: Panel::Inspector });
+        }
+        if ui.available_width() < 500.0 && rendered.contains(&Panel::Tools) && app.active.is_some() {
+            let _ = rendered.apply(Action::Close { panel: Panel::Tools });
+        }
+    }
     // Tools docked on its own is drawn bare, without a tab strip, like Acrobat's tool pane. Grouped
     // with another panel, or floating, it keeps its tab so it can be dragged away again; moving it
     // to the other side stays a preference and a command.

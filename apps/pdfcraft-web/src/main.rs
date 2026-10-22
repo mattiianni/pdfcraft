@@ -23,6 +23,12 @@ fn main() {
                 options,
                 Box::new(|cc| {
                     let mut app = PdfCraftApp::new();
+                    // Dismiss the HTML loading screen once the WASM application has started
+                    if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+                        if let Some(loading) = doc.get_element_by_id("loading") {
+                            let _ = loading.set_class_name("loaded");
+                        }
+                    }
                     // "printcraft": settings saved under the app's former name, PrintCraft.
                     if let Some(json) = cc.storage.and_then(|s| s.get_string("pdfcraft").or_else(|| s.get_string("printcraft"))) {
                         app.restore(&json);
