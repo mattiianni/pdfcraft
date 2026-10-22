@@ -583,6 +583,7 @@ pub struct PdfCraftApp {
     pub palette_query: String,
     pub all_tools_expanded: bool,
     pub recent: Vec<RecentFile>,
+    pub recent_tools: Vec<String>,
     /// Preferences: reopen the files that were open when PdfCraft last closed (#442).
     pub reopen_last_session: bool,
     /// The files open when PdfCraft last closed, read from the settings for
@@ -986,6 +987,7 @@ impl PdfCraftApp {
             palette_query: String::new(),
             all_tools_expanded: false,
             recent: Vec::new(),
+            recent_tools: Vec::new(),
             reopen_last_session: false,
             last_session: Default::default(),
             quit_session: None,
@@ -2247,9 +2249,40 @@ impl PdfCraftApp {
         self.pending_panel_reveals.push(docking::Panel::Tools);
     }
 
+    pub(crate) fn record_recent_tool(&mut self, id: &str) {
+        if pdfcraft_engine::catalog::group(id).is_none() {
+            return;
+        }
+        self.recent_tools.retain(|x| x != id);
+        self.recent_tools.insert(0, id.to_string());
+        self.recent_tools.truncate(6);
+    }
+
+    pub fn recent_tool_ids(&self) -> Vec<&'static str> {
+        const DEFAULT: [&str; 5] = ["organize", "comment", "form", "edit", "protect"];
+        let mut result: Vec<&'static str> = Vec::new();
+        for id in &self.recent_tools {
+            if let Some(g) = pdfcraft_engine::catalog::group(id) {
+                if !result.contains(&g.id) {
+                    result.push(g.id);
+                }
+            }
+        }
+        for id in DEFAULT {
+            if result.len() >= 5 {
+                break;
+            }
+            if !result.contains(&id) {
+                result.push(id);
+            }
+        }
+        result
+    }
+
     /// Enter a tool from the catalogue, Home, palette or control channel. Organize is a
     /// workspace, so opening its panel also opens the page grid (without toggling it off).
     pub(crate) fn select_tool(&mut self, id: &'static str) {
+        self.record_recent_tool(id);
         self.left = LeftPanel::Tool(id);
         self.reveal_tools();
         if let Some(view) = self.active.and_then(|i| self.views.get_mut(i)) {
@@ -2270,9 +2303,18 @@ impl PdfCraftApp {
             view.organize = false;
         }
         self.left = match mode {
-            Mode::Edit => LeftPanel::Tool("edit"),
-            Mode::Convert => LeftPanel::Tool("export"),
-            Mode::Sign => LeftPanel::Tool("fill_sign"),
+            Mode::Edit => {
+                self.record_recent_tool("edit");
+                LeftPanel::Tool("edit")
+            }
+            Mode::Convert => {
+                self.record_recent_tool("export");
+                LeftPanel::Tool("export")
+            }
+            Mode::Sign => {
+                self.record_recent_tool("fill_sign");
+                LeftPanel::Tool("fill_sign")
+            }
             _ => LeftPanel::AllTools,
         };
     }
@@ -2431,6 +2473,7 @@ impl PdfCraftApp {
         // Set outside json! above, which is at serde_json's macro recursion limit.
         v["hide_empty_highlight_hover"] = serde_json::Value::Bool(self.comment_prefs.hide_empty_highlight_hover);
         v["organize_zoom"] = serde_json::json!(self.organize_zoom);
+        v["recent_tools"] = serde_json::json!(self.recent_tools);
         // Canonical names survive changes to the order of PAPERS and do not depend on UI language.
         v["print_paper"] = serde_json::json!(pdfcraft_engine::print::PAPERS.get(self.print_draft.paper).map(|(name, _)| *name));
         v.to_string()
@@ -2464,6 +2507,9 @@ impl PdfCraftApp {
             #[cfg(not(target_arch = "wasm32"))]
             let r: Vec<RecentFile> = r.into_iter().filter(|f| std::path::Path::new(&f.path).exists()).collect();
             self.recent = r;
+        }
+        if let Ok(rt) = serde_json::from_value::<Vec<String>>(v["recent_tools"].clone()) {
+            self.recent_tools = rt;
         }
         if let Some(on) = v["reopen_last_session"].as_bool() {
             self.reopen_last_session = on;
@@ -3424,5 +3470,31 @@ impl PdfCraftApp {
                 view.finish_render_frame(ctx, &doc.info, &doc.renderer);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recent_tools_recording_and_fallback() {
+        let mut app = PdfCraftApp::new();
+        assert_eq!(app.recent_tool_ids(), vec!["organize", "comment", "form", "edit", "protect"]);
+
+        app.record_recent_tool("compress");
+        assert_eq!(app.recent_tool_ids(), vec!["compress", "organize", "comment", "form", "edit"]);
+
+        app.record_recent_tool("redact");
+        assert_eq!(app.recent_tool_ids(), vec!["redact", "compress", "organize", "comment", "form"]);
+
+        app.record_recent_tool("compress");
+        assert_eq!(app.recent_tool_ids(), vec!["compress", "redact", "organize", "comment", "form"]);
+
+        let json = app.persist();
+        let mut app2 = PdfCraftApp::new();
+        app2.restore(&json);
+        assert_eq!(app2.recent_tools, vec!["compress", "redact"]);
+        assert_eq!(app2.recent_tool_ids(), vec!["compress", "redact", "organize", "comment", "form"]);
     }
 }

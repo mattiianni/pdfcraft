@@ -7,8 +7,6 @@ use pdfcraft_engine::catalog;
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, icons, panels::human_size, widgets};
 
-const RECOMMENDED: [&str; 5] = ["organize", "comment", "form", "edit", "protect"];
-
 /// A soft shadow that rises on hover and settles when the card is pressed.
 fn card_lift(ui: &egui::Ui, t: &Tokens, rect: Rect, press: theme::Press) {
     let lift = press.hover * (1.0 - press.down);
@@ -26,7 +24,57 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     }
 }
 
-/// Mobile home view: wide edge-to-edge layout, no "Recommended tools" label, 2 cards per row for all catalog tools.
+fn render_mobile_tool_card(
+    app: &mut PdfCraftApp,
+    ui: &mut egui::Ui,
+    t: &Tokens,
+    g: &'static catalog::ToolGroup,
+    card_w: f32,
+    card_h: f32,
+) {
+    let (rect, resp) = ui.allocate_exact_size(vec2(card_w, card_h), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!(g.label)));
+    let press = theme::Press::track(ui, &resp);
+    card_lift(ui, t, rect, press);
+    let fill = press.fill(t.card, t.hover, t.pressed);
+    ui.painter().rect(rect, CornerRadius::same(10), fill, Stroke::new(1.0, t.divider), egui::StrokeKind::Inside);
+    let body = rect.translate(press.offset());
+    let color = egui::Color32::from_rgb(g.hue[0], g.hue[1], g.hue[2]);
+
+    // Icon
+    icons::paint(ui, Rect::from_min_size(body.min + vec2(10.0, 10.0), vec2(20.0, 20.0)), g.icon, 18.0, color);
+
+    // Title
+    let title_width = (body.width() - 36.0).max(0.0);
+    widgets::row_text(ui, body.min + vec2(34.0, 19.0), tl!(g.label), theme::semibold(12.5), t.text, title_width);
+
+    // Blurb / instructions
+    let blurb = g
+        .sections
+        .first()
+        .map(|s| s.items.iter().take(2).map(|i| tl!(i.label)).collect::<Vec<_>>().join(" · "))
+        .unwrap_or_default();
+    let blurb_width = (body.width() - 20.0).max(0.0);
+    widgets::row_text(ui, body.min + vec2(10.0, 44.0), blurb, theme::regular(10.5), t.text_muted, blurb_width);
+
+    // Action link
+    ui.painter().text(
+        body.left_bottom() + vec2(10.0, -11.0),
+        Align2::LEFT_CENTER,
+        tl!("Use now"),
+        theme::medium(11.0),
+        t.accent_text,
+    );
+
+    if theme::hand(resp).clicked() {
+        app.select_tool(g.id);
+        if app.active.is_none() {
+            app.open_dialog();
+        }
+    }
+}
+
+/// Mobile home view: wide edge-to-edge layout, recent tools quick access, 2 cards per row for all catalog tools.
 fn show_mobile(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
@@ -38,6 +86,36 @@ fn show_mobile(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     .font(theme::regular(12.5)),
             );
             ui.add_space(10.0);
+
+            // Recent tools section on mobile (if any tools have been used)
+            let recent_tools = app.recent_tools.clone();
+            if !recent_tools.is_empty() {
+                ui.label(egui::RichText::new(tl!("Recent tools")).font(theme::semibold(15.0)));
+                ui.add_space(6.0);
+                egui::Frame::NONE
+                    .fill(t.card)
+                    .stroke(Stroke::new(1.0, t.border))
+                    .corner_radius(CornerRadius::same(12))
+                    .inner_margin(egui::Margin::same(8))
+                    .show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        let avail = ui.available_width();
+                        let spacing = 8.0;
+                        let card_w = ((avail - spacing) / 2.0).floor().max(120.0);
+                        let card_h = 94.0;
+
+                        ui.horizontal_wrapped(|ui| {
+                            ui.spacing_mut().item_spacing = vec2(spacing, spacing);
+                            for id in &recent_tools {
+                                let Some(g) = catalog::group(id) else { continue };
+                                render_mobile_tool_card(app, ui, &t, g, card_w, card_h);
+                            }
+                        });
+                    });
+                ui.add_space(12.0);
+                ui.label(egui::RichText::new(tl!("All tools")).font(theme::semibold(15.0)));
+                ui.add_space(6.0);
+            }
 
             egui::Frame::NONE
                 .fill(t.card)
@@ -75,46 +153,7 @@ fn show_mobile(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
 
                         // 2. All catalog tools in 2-column grid
                         for g in catalog::TOOL_GROUPS {
-                            let (rect, resp) = ui.allocate_exact_size(vec2(card_w, card_h), Sense::click());
-                            resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!(g.label)));
-                            let press = theme::Press::track(ui, &resp);
-                            card_lift(ui, &t, rect, press);
-                            let fill = press.fill(t.card, t.hover, t.pressed);
-                            ui.painter().rect(rect, CornerRadius::same(10), fill, Stroke::new(1.0, t.divider), egui::StrokeKind::Inside);
-                            let body = rect.translate(press.offset());
-                            let color = egui::Color32::from_rgb(g.hue[0], g.hue[1], g.hue[2]);
-
-                            // Icon
-                            icons::paint(ui, Rect::from_min_size(body.min + vec2(10.0, 10.0), vec2(20.0, 20.0)), g.icon, 18.0, color);
-
-                            // Title
-                            let title_width = (body.width() - 36.0).max(0.0);
-                            widgets::row_text(ui, body.min + vec2(34.0, 19.0), tl!(g.label), theme::semibold(12.5), t.text, title_width);
-
-                            // Blurb / instructions
-                            let blurb = g
-                                .sections
-                                .first()
-                                .map(|s| s.items.iter().take(2).map(|i| tl!(i.label)).collect::<Vec<_>>().join(" · "))
-                                .unwrap_or_default();
-                            let blurb_width = (body.width() - 20.0).max(0.0);
-                            widgets::row_text(ui, body.min + vec2(10.0, 44.0), blurb, theme::regular(10.5), t.text_muted, blurb_width);
-
-                            // Action link
-                            ui.painter().text(
-                                body.left_bottom() + vec2(10.0, -11.0),
-                                Align2::LEFT_CENTER,
-                                tl!("Use now"),
-                                theme::medium(11.0),
-                                t.accent_text,
-                            );
-
-                            if theme::hand(resp).clicked() {
-                                app.select_tool(g.id);
-                                if app.active.is_none() {
-                                    app.open_dialog();
-                                }
-                            }
+                            render_mobile_tool_card(app, ui, &t, g, card_w, card_h);
                         }
                     });
                 });
@@ -135,27 +174,7 @@ fn show_desktop(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     .color(t.text_muted)
                     .font(theme::regular(14.0)),
             );
-            ui.add_space(14.0);
-            egui::Frame::NONE
-                .fill(t.card)
-                .stroke(Stroke::new(1.0, t.border))
-                .corner_radius(CornerRadius::same(12))
-                .inner_margin(egui::Margin::same(14))
-                .show(ui, |ui| {
-                    ui.set_width(ui.available_width());
-                    ui.horizontal(|ui| {
-                        widgets::artcraft_mark(ui, 28.0);
-                        ui.vertical(|ui| {
-                            ui.label(egui::RichText::new(tl!("Join the ArtCraft community")).font(theme::semibold(15.0)));
-                            ui.label(egui::RichText::new(tl!("Get help, share feedback and follow development on Discord.")).color(t.text_muted));
-                        });
-                    });
-                    ui.add_space(8.0);
-                    if let Some(cmd) = widgets::community_links(ui) {
-                        app.execute(cmd);
-                    }
-                });
-            ui.add_space(22.0);
+            ui.add_space(20.0);
 
             egui::Frame::NONE
                 .fill(t.card)
@@ -164,11 +183,12 @@ fn show_desktop(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 .inner_margin(egui::Margin::same(18))
                 .show(ui, |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(egui::RichText::new(tl!("Recommended tools")).font(theme::semibold(15.0)));
+                    let recent_ids = app.recent_tool_ids();
+                    ui.label(egui::RichText::new(tl!("Recent tools")).font(theme::semibold(15.0)));
                     ui.add_space(10.0);
                     ui.horizontal_wrapped(|ui| {
                         ui.spacing_mut().item_spacing = vec2(14.0, 14.0);
-                        for id in RECOMMENDED {
+                        for id in recent_ids {
                             let Some(g) = catalog::group(id) else { continue };
                             let (rect, resp) = ui.allocate_exact_size(vec2(190.0, 104.0), Sense::click());
                             resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!(g.label)));

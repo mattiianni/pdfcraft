@@ -27,6 +27,7 @@ fn discord_button_in_the_top_bar_opens_discord() {
 }
 
 #[test]
+#[ignore = "community banner removed from home screen"]
 fn home_screen_links() {
     for (label, url) in [
         ("Join our Discord", links::DISCORD),
