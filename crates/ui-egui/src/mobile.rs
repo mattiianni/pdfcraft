@@ -86,8 +86,6 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         if icons::button(ui, "wrench", 32.0, is_tools_open, tl!("All tools")).clicked() {
                             app.mobile_sheet = if is_tools_open { None } else { Some(MobileSheet::Tools) };
                         }
-                    } else if icons::button(ui, "folder", 32.0, false, tl!("Open")).clicked() {
-                        app.open_dialog();
                     }
                 });
             });

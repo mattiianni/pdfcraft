@@ -1,5 +1,5 @@
 // Service Worker for PdfCraft PWA
-const CACHE_NAME = 'pdfcraft-v4';
+const CACHE_NAME = 'pdfcraft-v5';
 const PRECACHE_URLS = [
   './',
   'index.html',

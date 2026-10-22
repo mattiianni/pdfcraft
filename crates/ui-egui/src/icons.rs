@@ -35,6 +35,18 @@ pub fn paint(ui: &egui::Ui, rect: Rect, name: &str, size: f32, tint: Color32) {
 
 /// Square icon button: transparent until hovered; `selected` gets the accent treatment.
 pub fn button(ui: &mut egui::Ui, name: &str, box_size: f32, selected: bool, tooltip: &str) -> Response {
+    button_sized(ui, name, box_size, (box_size * 0.5).round(), selected, tooltip)
+}
+
+/// Square icon button with custom box size and explicit icon glyph size.
+pub fn button_sized(
+    ui: &mut egui::Ui,
+    name: &str,
+    box_size: f32,
+    icon_size: f32,
+    selected: bool,
+    tooltip: &str,
+) -> Response {
     let t = Tokens::get(ui.ctx());
     // The shared button paints no fill of its own: the eased press wash below replaces it.
     let clear = |icon| ButtonVisuals { fill: Color32::TRANSPARENT, stroke: Stroke::NONE, icon };
@@ -68,7 +80,7 @@ pub fn button(ui: &mut egui::Ui, name: &str, box_size: f32, selected: bool, tool
         }
         ui.painter().set(wash, egui::Shape::Vec(shapes));
         // The glyph shrinks a little and drops a pixel while the pointer is down.
-        let size = (box_size * 0.5).round() * (1.0 - 0.08 * press.down);
+        let size = icon_size.round() * (1.0 - 0.08 * press.down);
         paint(ui, rect.translate(press.offset()), name, size, tint);
     }
     let resp = theme::hand(resp);

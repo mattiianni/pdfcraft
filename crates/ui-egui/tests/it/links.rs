@@ -18,6 +18,7 @@ fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, P
 }
 
 #[test]
+#[ignore = "Discord button removed from top bar"]
 fn discord_button_in_the_top_bar_opens_discord() {
     let mut h = harness(|_| {});
     h.get_by_label("Discord").click();
