@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "apps/*", "xtask"]
+members = ["crates/*", "apps/pdfcraft-web"]
 exclude = ["vendor"]
-default-members = ["crates/*", "apps/pdfcraft", "apps/pdfcraft-cli", "xtask"]
+default-members = ["crates/*", "apps/pdfcraft-web"]
 
 [workspace.package]
 version = "0.11.0"
