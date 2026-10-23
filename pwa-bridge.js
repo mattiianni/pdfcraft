@@ -106,57 +106,32 @@
 
   window.convertDocxToPdf = convertDocxToPdf;
 
-  // 2. Intercept <input type="file"> to allow DOCX on iPadOS & convert automatically
-  const origCreateElement = document.createElement.bind(document);
-  document.createElement = function(tagName, options) {
-    const el = origCreateElement(tagName, options);
-    if (tagName && tagName.toLowerCase() === 'input') {
-      const origSetAttribute = el.setAttribute.bind(el);
-      el.setAttribute = function(name, val) {
-        if (name && name.toLowerCase() === 'accept') {
-          // Expand file filter so iOS/iPadOS Files app does NOT gray out Word documents
-          val = val + ',.docx,.doc,.odt,.rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword';
+  // 2. Unconstrain <input type="file"> so iPadOS / iOS Files app NEVER grays out Word (.docx) documents
+  try {
+    const origAcceptDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'accept');
+    if (origAcceptDesc && origAcceptDesc.set) {
+      Object.defineProperty(HTMLInputElement.prototype, 'accept', {
+        set: function(val) {
+          // On iPadOS/iOS Safari, any strict accept extension list disables Word docx in the system picker.
+          // By leaving accept unconstrained, all documents can be chosen and converted natively.
+          return origAcceptDesc.set.call(this, '');
+        },
+        get: function() {
+          return origAcceptDesc.get.call(this);
         }
-        return origSetAttribute(name, val);
-      };
-
-      // Intercept change event before WASM listener
-      el.addEventListener('change', async function(e) {
-        if (!el.files || el.files.length === 0) return;
-        const files = Array.from(el.files);
-        const hasDocx = files.some(f => /\.(docx|doc)$/i.test(f.name));
-        if (!hasDocx) return;
-
-        // Stop immediate propagation while converting
-        e.stopImmediatePropagation();
-        console.log('PdfCraft: Detected Word .docx file(s) in picker. Converting to PDF...');
-
-        try {
-          const dt = new DataTransfer();
-          for (const file of files) {
-            if (/\.(docx|doc)$/i.test(file.name)) {
-              const buffer = await file.arrayBuffer();
-              const pdfBlob = await convertDocxToPdf(buffer, file.name);
-              const pdfFileName = file.name.replace(/\.docx?$/i, '.pdf');
-              const pdfFile = new File([pdfBlob], pdfFileName, { type: 'application/pdf', lastModified: Date.now() });
-              dt.items.add(pdfFile);
-              console.log(`PdfCraft: Converted ${file.name} -> ${pdfFileName} (${pdfBlob.size} bytes)`);
-            } else {
-              dt.items.add(file);
-            }
-          }
-
-          // Replace input.files with converted PDF files
-          el.files = dt.files;
-          // Re-dispatch change event to trigger WASM reader
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        } catch (err) {
-          console.error('PdfCraft: Error converting DOCX:', err);
-        }
-      }, true); // Use capture phase so we run before WASM handlers
+      });
     }
-    return el;
-  };
+
+    const origSetAttribute = HTMLInputElement.prototype.setAttribute;
+    HTMLInputElement.prototype.setAttribute = function(name, val) {
+      if (name && name.toLowerCase() === 'accept') {
+        return origSetAttribute.call(this, name, '');
+      }
+      return origSetAttribute.call(this, name, val);
+    };
+  } catch (err) {
+    console.warn('PdfCraft: Could not unconstrain file picker accept attribute:', err);
+  }
 
   // 3. Client-Side OCR Bridge with Tesseract.js (Italian by default)
   window.pdfcraftRunOcr = async function(imageBlobOrUrl, lang = 'ita') {
