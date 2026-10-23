@@ -3326,12 +3326,16 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
 
             // Form fields take clicks first with the Select tool (as Acrobat fills fields in
             // every viewing mode); then comments; then text selection.
+            let pointer_pos = ui.input(|inp| inp.pointer.hover_pos())
+                .or_else(|| resp.interact_pointer_pos())
+                .or_else(|| ui.input(|inp| inp.pointer.latest_pos()));
+
             if let QuickTool::Stamp(kind) = tool
                 && allowed
-                && let Some(p) = ui.input(|inp| inp.pointer.hover_pos()).filter(|p| xf.rect.contains(*p))
+                && let Some(p) = pointer_pos.filter(|p| xf.rect.contains(*p))
             {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
-                if resp.clicked() {
+                if resp.clicked() || (ui.input(|inp| inp.pointer.any_released()) && resp.contains_pointer()) {
                     // Centred on the click, upright as the page is shown.
                     let (vx, vy) = xf.screen_to_view(p);
                     let (w, h) = kind.size();
@@ -3352,10 +3356,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
             }
             if let Some(cs) = custom_stamp.as_ref()
                 && allowed
-                && let Some(p) = ui.input(|inp| inp.pointer.hover_pos()).filter(|p| xf.rect.contains(*p))
+                && let Some(p) = pointer_pos.filter(|p| xf.rect.contains(*p))
             {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
-                if resp.clicked() {
+                if resp.clicked() || (ui.input(|inp| inp.pointer.any_released()) && resp.contains_pointer()) {
                     // Centred on the click at its natural size (the engine sizes it).
                     let (vx, vy) = xf.screen_to_view(p);
                     let u = info.pages[i].view_to_user(vx, vy);

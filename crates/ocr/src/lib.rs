@@ -23,8 +23,14 @@ pub const RECOGNITION_MODEL: &str = "text-recognition.rten";
 /// `€`, which made a scanned "€250" read as "E250".
 pub const ALPHABET: &str = " 0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~€ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-/// The languages the models read (ISO 639-1); all use the Latin alphabet without accents.
-pub const LANGUAGES: &[(&str, &str)] = &[("en", "English")];
+/// The languages the models read (ISO 639-1).
+pub const LANGUAGES: &[(&str, &str)] = &[
+    ("it", "Italian"),
+    ("en", "English"),
+    ("fr", "French"),
+    ("de", "German"),
+    ("es", "Spanish"),
+];
 
 #[derive(Debug, thiserror::Error)]
 pub enum OcrError {

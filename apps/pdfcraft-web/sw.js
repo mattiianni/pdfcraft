@@ -1,9 +1,13 @@
 // Service Worker for PdfCraft PWA
-const CACHE_NAME = 'pdfcraft-v5';
+const CACHE_NAME = 'pdfcraft-v6';
 const PRECACHE_URLS = [
   './',
   'index.html',
   'manifest.webmanifest',
+  'pwa-bridge.js',
+  'libs/pdf-lib.min.js',
+  'libs/mammoth.browser.min.js',
+  'libs/tesseract.min.js',
   'icons/apple-touch-icon.png',
   'icons/icon-192.png',
   'icons/icon-512.png',

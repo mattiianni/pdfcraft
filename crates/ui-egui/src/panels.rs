@@ -506,7 +506,11 @@ fn stamp_palette(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
                     }
                 }
                 if theme::hand(resp).clicked() {
-                    app.quick_tool = crate::QuickTool::Stamp(kind);
+                    if app.quick_tool == crate::QuickTool::Stamp(kind) {
+                        app.place_stamp_center(kind);
+                    } else {
+                        app.quick_tool = crate::QuickTool::Stamp(kind);
+                    }
                 }
             }
         }

@@ -51,7 +51,7 @@ fn covered(word: [f32; 4], text: &[[f32; 4]]) -> f32 {
 
 impl Default for OcrSettings {
     fn default() -> Self {
-        OcrSettings { dpi: 300.0, language: "en".into(), skip_text_pages: true }
+        OcrSettings { dpi: 300.0, language: "it".into(), skip_text_pages: true }
     }
 }
 
@@ -86,6 +86,9 @@ pub fn engine() -> Result<Arc<Ocr>, String> {
 
 /// Whether the recognition models are installed.
 pub fn available() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    return true;
+    #[cfg(not(target_arch = "wasm32"))]
     Models::find().is_some()
 }
 

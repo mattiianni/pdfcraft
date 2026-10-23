@@ -173,6 +173,30 @@ impl PdfCraftApp {
         self.custom_stamps.push(CustomStamp { category: d.category.trim().into(), name: d.name.trim().into(), file: d.file, page: 0, data: d.data });
         self.quick_tool = QuickTool::CustomStamp(self.custom_stamps.len() - 1);
     }
+
+    /// Place a standard stamp in the center of the active page (ideal for touch screens).
+    pub fn place_stamp_center(&mut self, kind: pdfcraft_engine::StampKind) {
+        let Some((v_idx, doc_id)) = self.active_ids() else { return };
+        let Some(doc) = self.session.get(doc_id) else { return };
+        let page = self.views.get(v_idx).map(|v| v.current).unwrap_or(0).min(doc.info.pages.len().saturating_sub(1));
+        let Some(pinfo) = doc.info.pages.get(page) else { return };
+        let (pw, ph) = (pinfo.width as f64, pinfo.height as f64);
+        let (sw, sh) = kind.size();
+        let (cx, cy) = (pw / 2.0, ph / 2.0);
+        let rect = [(cx - sw / 2.0).max(0.0), (cy - sh / 2.0).max(0.0), cx + sw / 2.0, cy + sh / 2.0];
+        let by_line = self.session.stamp_by_line(&self.comment_prefs.author);
+        let by = (kind.group() == pdfcraft_engine::StampGroup::Dynamic).then(|| by_line);
+        let shape = pdfcraft_engine::Shape::Stamp { rect, stamp: kind, by };
+        self.apply_edit(pdfcraft_engine::Edit::AddAnnotation(pdfcraft_engine::NewAnnotation {
+            page,
+            style: pdfcraft_engine::Style::default_for(&shape),
+            shape,
+            contents: String::new(),
+            author: self.comment_prefs.author.clone(),
+        }));
+        self.quick_tool = QuickTool::Select;
+        self.notify_tr("Stamp placed in center of page");
+    }
 }
 
 /// The custom stamps for `persist` (kept small: base64 of each file).
