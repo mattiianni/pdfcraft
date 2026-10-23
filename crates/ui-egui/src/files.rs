@@ -66,11 +66,20 @@ fn files_picker(purpose: FilePurpose) -> rfd::AsyncFileDialog {
     if purpose == FilePurpose::RedactWords {
         return dialog.add_filter(tl!("Text"), &["txt"]);
     }
-    if !matches!(purpose, FilePurpose::CreateMultiple | FilePurpose::CreateMultipleSeparate | FilePurpose::InsertPages | FilePurpose::Combine) {
-        return dialog.add_filter("PDF", &["pdf"]);
+    #[cfg(target_arch = "wasm32")]
+    {
+        // On Web (especially iPadOS/iOS Safari), strict extension filters cause Word (.docx)
+        // files to be grayed out in the system file picker. Allow all documents so conversion works.
+        return dialog;
     }
-    let all: Vec<&str> = std::iter::once("pdf").chain(pdfcraft_engine::CONVERTIBLE).collect();
-    dialog.add_filter(tl!("PDF, images and text"), &all).add_filter("PDF", &["pdf"])
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if !matches!(purpose, FilePurpose::CreateMultiple | FilePurpose::CreateMultipleSeparate | FilePurpose::InsertPages | FilePurpose::Combine) {
+            return dialog.add_filter("PDF", &["pdf"]);
+        }
+        let all: Vec<&str> = std::iter::once("pdf").chain(pdfcraft_engine::CONVERTIBLE).collect();
+        dialog.add_filter(tl!("PDF, images and text"), &all).add_filter("PDF", &["pdf"])
+    }
 }
 
 /// The Replace Pages dialog: the chosen file and the ranges (1-based, inclusive).

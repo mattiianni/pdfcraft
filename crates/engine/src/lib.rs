@@ -54,7 +54,7 @@ pub use pdfcraft_organize::Standard;
 pub use pdfcraft_organize::view::{InitialView, Layout as InitialLayout, Magnification, Navigation};
 
 pub use pdfcraft_cos::Algorithm;
-pub use pdfcraft_create::{CONVERTIBLE, CreateError, ImageResolution, SourceKind, decode_text, source_kind};
+pub use pdfcraft_create::{CONVERTIBLE, CreateError, ImageResolution, SourceKind, decode_text, extract_document_text, source_kind};
 pub use pdfcraft_edit::added::{text_rect as added_text_rect, text_width as added_text_width};
 pub use pdfcraft_edit::{
     Added, AddedImage, AddedText, Align as TextAlign, Background, Content as AddedContent, Family as FontFamily, HeaderFooter, MarkKind, Watermark,
@@ -4459,6 +4459,11 @@ impl Session {
             SourceKind::Pdf => open_source(name, bytes).map(|_| bytes.clone()),
             SourceKind::Image => self.create_from_images(&[(name.to_string(), bytes.to_vec())]),
             SourceKind::Text => self.create_from_text(title, &decode_text(bytes)),
+            SourceKind::Docx => {
+                let text = extract_document_text(name, bytes)
+                    .map_err(|e| EditError::Source(e.to_string()))?;
+                self.create_from_text(title, &text)
+            }
         })
         .map_err(|_| EditError::Source(format!("{name}: the file could not be read")))?;
         Ok((kind, created?))
@@ -4470,7 +4475,7 @@ impl Session {
     pub fn as_pdf(&self, name: &str, bytes: &Arc<Vec<u8>>) -> Result<Arc<Vec<u8>>, EditError> {
         let pdf = match source_kind(name, bytes) {
             Some(SourceKind::Pdf) => true,
-            Some(SourceKind::Image | SourceKind::Text) => false,
+            Some(SourceKind::Image | SourceKind::Text | SourceKind::Docx) => false,
             None => name.to_ascii_lowercase().ends_with(".pdf"),
         };
         if pdf { Ok(bytes.clone()) } else { self.convert_to_pdf(name, bytes).map(|(_, pdf)| pdf) }

@@ -1987,8 +1987,6 @@ impl PdfCraftApp {
             let ctx = self.ctx.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 if let Some(h) = rfd::AsyncFileDialog::new()
-                    .add_filter("PDF", &["pdf"])
-                    .add_filter(tl!("Images and text"), &create_ui::CONVERTIBLE)
                     .pick_file()
                     .await
                 {

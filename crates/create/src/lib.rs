@@ -478,12 +478,16 @@ fn tiff_pages(name: &str, bytes: &[u8]) -> Result<Vec<Embedded>, CreateError> {
     Ok(out)
 }
 
+pub mod docx;
+pub use docx::extract_document_text;
+
 /// What a file picked for Create is, by its bytes (and, for text, its name).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SourceKind {
     Pdf,
     Image,
     Text,
+    Docx,
 }
 
 /// File extensions Create converts to PDF (images, plain text, and Word documents).
@@ -512,8 +516,7 @@ fn is_image(bytes: &[u8]) -> bool {
             && bytes.get(14..18).and_then(|h| <[u8; 4]>::try_from(h).ok()).is_some_and(|h| matches!(u32::from_le_bytes(h), 12 | 40 | 52 | 56 | 108 | 124)))
 }
 
-/// Whether `bytes` named `name` is a PDF, an image Create can embed, or plain text (a `.txt` or
-/// `.text` file). `None` for anything else.
+/// Whether `bytes` named `name` is a PDF, an image Create can embed, plain text, or Word/Office document.
 pub fn source_kind(name: &str, bytes: &[u8]) -> Option<SourceKind> {
     let head = bytes.get(..bytes.len().min(1024)).unwrap_or_default();
     if head.windows(5).any(|w| w == b"%PDF-") {
@@ -523,6 +526,12 @@ pub fn source_kind(name: &str, bytes: &[u8]) -> Option<SourceKind> {
         return Some(SourceKind::Image);
     }
     let lower = name.to_ascii_lowercase();
+    if lower.ends_with(".docx") || lower.ends_with(".doc") || lower.ends_with(".odt") || lower.ends_with(".rtf") {
+        return Some(SourceKind::Docx);
+    }
+    if bytes.starts_with(b"PK\x03\x04") || bytes.starts_with(b"{\\rtf") {
+        return Some(SourceKind::Docx);
+    }
     (lower.ends_with(".txt") || lower.ends_with(".text")).then_some(SourceKind::Text)
 }
 
