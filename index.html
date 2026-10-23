@@ -22,8 +22,8 @@
     <!-- Trunk build directives -->
     
 <script type="module">
-import init, * as bindings from './pdfcraft-web-970d71586db58af8.js';
-const wasm = await init({ module_or_path: './pdfcraft-web-a71eb02eeee30f7a_bg.wasm' });
+import init, * as bindings from './pdfcraft-web-ce6597802e737a3e.js';
+const wasm = await init({ module_or_path: './pdfcraft-web-1d2d4aa5173cae4a_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -35,6 +35,14 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     
     
     
+    
+    
+
+    <!-- Client-side conversion & OCR scripts -->
+    <script src="libs/pdf-lib.min.js"></script>
+    <script src="libs/mammoth.browser.min.js"></script>
+    <script src="libs/tesseract.min.js"></script>
+    <script src="pwa-bridge.js"></script>
 
     <style>
       * {
@@ -127,7 +135,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         color: #9ca3af;
       }
     </style>
-  <link rel="modulepreload" href="./pdfcraft-web-970d71586db58af8.js" crossorigin="anonymous" integrity="sha384-zR9qIV4G382RlkkNZWEwsI6TnqBRO7vTty7ywmGycbYY4WGS71ep99RIYImfPtX3"><link rel="preload" href="./pdfcraft-web-a71eb02eeee30f7a_bg.wasm" crossorigin="anonymous" integrity="sha384-Ppg+U7kBiY93VSw/moJhstxYnvse3myPIEJHTQLI6kIVTTCKL5tXz0SkV5rIzVDL" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="./pdfcraft-web-ce6597802e737a3e.js" crossorigin="anonymous" integrity="sha384-vl6cTvBbxfrglbb5UcixtP16sqES3ukuKJGWRVG3vPmnmHa4FUXz/rkp5JvsDi7I"><link rel="preload" href="./pdfcraft-web-1d2d4aa5173cae4a_bg.wasm" crossorigin="anonymous" integrity="sha384-eTNxV0O0O7uzhLo8z6SdHJYXgXIiwD0Mpcze/8z/WOiuSadVClYSECVY8CL7b2AA" as="fetch" type="application/wasm"></head>
   <body>
     <div id="loading">
       <img src="icons/icon-192.png" alt="PdfCraft" class="loading-logo" />
