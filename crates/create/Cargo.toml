@@ -22,6 +22,14 @@ thiserror = { workspace = true }
 # Already in the graph through lopdf; used only to read plain-text files (decode_text).
 encoding_rs = "0.8"
 
+# 1:1 Office document conversion (DOCX, XLSX, PPTX, ODT) via Typst layout engine.
+# Features are split per target: WASM builds get the wasm feature; native builds use embedded-fonts.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+office2pdf = { workspace = true, features = ["wasm"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+office2pdf = { workspace = true, features = ["embedded-fonts"] }
+
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg"] }
 hayro-syntax = { workspace = true }

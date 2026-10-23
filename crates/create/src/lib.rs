@@ -479,7 +479,7 @@ fn tiff_pages(name: &str, bytes: &[u8]) -> Result<Vec<Embedded>, CreateError> {
 }
 
 pub mod docx;
-pub use docx::extract_document_text;
+pub use docx::{convert_document_to_pdf, extract_document_text};
 
 /// What a file picked for Create is, by its bytes (and, for text, its name).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -490,8 +490,13 @@ pub enum SourceKind {
     Docx,
 }
 
-/// File extensions Create converts to PDF (images, plain text, and Word documents).
-pub const CONVERTIBLE: [&str; 16] = ["png", "jpg", "jpeg", "tif", "tiff", "gif", "bmp", "jp2", "j2k", "jpx", "txt", "text", "docx", "doc", "odt", "rtf"];
+/// File extensions Create converts to PDF (images, plain text, and Office documents).
+pub const CONVERTIBLE: [&str; 18] = [
+    "png", "jpg", "jpeg", "tif", "tiff", "gif", "bmp", "jp2", "j2k", "jpx",
+    "txt", "text",
+    "docx", "doc", "odt", "rtf",
+    "xlsx", "pptx",
+];
 
 /// A classic TIFF or a BigTIFF (version 43), in either byte order.
 fn is_tiff(bytes: &[u8]) -> bool {
@@ -526,7 +531,9 @@ pub fn source_kind(name: &str, bytes: &[u8]) -> Option<SourceKind> {
         return Some(SourceKind::Image);
     }
     let lower = name.to_ascii_lowercase();
-    if lower.ends_with(".docx") || lower.ends_with(".doc") || lower.ends_with(".odt") || lower.ends_with(".rtf") {
+    if lower.ends_with(".docx") || lower.ends_with(".doc") || lower.ends_with(".odt") || lower.ends_with(".rtf")
+        || lower.ends_with(".xlsx") || lower.ends_with(".pptx")
+    {
         return Some(SourceKind::Docx);
     }
     if bytes.starts_with(b"PK\x03\x04") || bytes.starts_with(b"{\\rtf") {

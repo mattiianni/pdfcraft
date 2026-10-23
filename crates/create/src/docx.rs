@@ -1,8 +1,68 @@
-//! Extract plain text from Office and document formats: DOCX, ODT, RTF, DOC.
+//! Office document conversion: DOCX, XLSX, PPTX, ODT, RTF, DOC → PDF.
+//!
+//! The primary path uses `office2pdf` (Typst-powered) for 1:1 fidelity: images,
+//! tables, styles, headers/footers are all preserved in the generated PDF.
+//! Legacy plain-text fallback remains for RTF and binary DOC.
 
 use std::io::Read;
 use flate2::read::DeflateDecoder;
+use pdfcraft_cos::{SaveOptions, write_full};
 use crate::CreateError;
+
+// ── 1:1 conversion via office2pdf (Typst) ───────────────────────────────────
+
+/// Convert an Office document to PDF bytes with 1:1 layout fidelity.
+///
+/// Supported formats:
+/// - `.docx` / Word XML          → Word (1:1 with images, tables, styles)
+/// - `.xlsx`                    → Excel (1:1 with sheets, formatting)
+/// - `.pptx`                    → PowerPoint (1:1 with slides, images)
+/// - `.odt`                     → OpenDocument Text (text extraction fallback)
+/// - `.rtf` / `.doc`            → Rich Text / Binary DOC (text extraction fallback)
+pub fn convert_document_to_pdf(name: &str, bytes: &[u8]) -> Result<Vec<u8>, CreateError> {
+    let lower = name.to_ascii_lowercase();
+
+    // Formats not natively handled by office2pdf: use legacy text fallback
+    if lower.ends_with(".rtf") || bytes.starts_with(b"{\\rtf") || lower.ends_with(".odt") || lower.ends_with(".doc") {
+        return legacy_text_to_pdf_bytes(name, bytes);
+    }
+
+    // Detect format for office2pdf (DOCX, XLSX, PPTX)
+    let format = if lower.ends_with(".docx") || bytes.starts_with(b"PK\x03\x04") {
+        office2pdf::config::Format::Docx
+    } else if lower.ends_with(".xlsx") {
+        office2pdf::config::Format::Xlsx
+    } else if lower.ends_with(".pptx") {
+        office2pdf::config::Format::Pptx
+    } else {
+        return legacy_text_to_pdf_bytes(name, bytes);
+    };
+
+    let options = office2pdf::config::ConvertOptions::default();
+    match office2pdf::convert_bytes(bytes, format, &options) {
+        Ok(result) if !result.pdf.is_empty() => Ok(result.pdf),
+        _ => {
+            // If office2pdf parsing encounters an issue (e.g. malformed docx or custom XML),
+            // fallback gracefully to text extraction so the document can still be opened
+            legacy_text_to_pdf_bytes(name, bytes)
+        }
+    }
+}
+
+/// Fallback for RTF/ODT/DOC or recovery: extract plain text then emit a PDF.
+/// Characters outside WinAnsi are silently dropped so it never fails.
+fn legacy_text_to_pdf_bytes(name: &str, bytes: &[u8]) -> Result<Vec<u8>, CreateError> {
+    let text = extract_document_text(name, bytes)?;
+    let title = name.rsplit_once('.').map_or(name, |(s, _)| s);
+    let doc = crate::from_text(title, &text, crate::LETTER, 11.0)
+        .or_else(|_| {
+            let sanitized: String = text.chars()
+                .filter(|&c| c == '\n' || c == '\r' || c == '\t' || pdfcraft_fonts::win_ansi_encodable(c))
+                .collect();
+            crate::from_text(title, &sanitized, crate::LETTER, 11.0)
+        })?;
+    write_full(&doc, &SaveOptions::default()).map_err(|e| CreateError::Invalid(e.to_string()))
+}
 
 /// Extract plain text from Word (.docx, .doc), OpenDocument (.odt), or RTF (.rtf).
 pub fn extract_document_text(name: &str, bytes: &[u8]) -> Result<String, CreateError> {
@@ -404,5 +464,13 @@ mod tests {
         let extracted = extract_docx_xml_text(sample_xml);
         assert!(extracted.contains("Benvenuto in PdfCraft!"));
         assert!(extracted.contains("Conversione Word nativa & veloce su iPadOS."));
+    }
+
+    #[test]
+    fn convert_document_to_pdf_generates_valid_pdf() {
+        let rtf_bytes = b"{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Courier;}} \\f0\\fs24 Benvenuto in PdfCraft 1:1 conversion!}";
+        let pdf = convert_document_to_pdf("document.rtf", rtf_bytes).expect("converts to PDF");
+        assert!(pdf.starts_with(b"%PDF-"), "Output must be a valid PDF");
+        assert!(pdf.len() > 100, "Output PDF must not be empty");
     }
 }

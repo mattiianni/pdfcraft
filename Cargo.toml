@@ -55,6 +55,10 @@ pdfcraft-platform = { path = "crates/platform", version = "0.11.0" }
 pdfcraft-ui-egui = { path = "crates/ui-egui", version = "0.11.0" }
 pdfcraft-automation = { path = "crates/automation", version = "0.11.0", default-features = false }
 
+# Office document conversion (DOCX, XLSX, PPTX, ODT) → PDF 1:1 via Typst layout engine.
+# Default features disabled; wasm/embedded-fonts are set per-platform in pdfcraft-create.
+office2pdf = { version = "0.9.1", default-features = false }
+
 # pdf
 hayro = "0.7.1"
 hayro-syntax = "0.7.2"
@@ -116,6 +120,8 @@ hayro = { path = "vendor/hayro" }
 hayro-syntax = { path = "vendor/hayro-syntax" }
 hayro-cmap = { path = "vendor/hayro-cmap" }
 hayro-jbig2 = { path = "vendor/hayro-jbig2" }
+hayro-svg = { path = "vendor/hayro-svg" }
+typst-svg = { path = "vendor/typst-svg" }
 lopdf = { path = "vendor/lopdf" }
 winit = { path = "vendor/winit" }
 egui-wgpu = { path = "vendor/egui-wgpu" }

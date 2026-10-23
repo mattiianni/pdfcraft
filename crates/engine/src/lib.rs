@@ -54,7 +54,7 @@ pub use pdfcraft_organize::Standard;
 pub use pdfcraft_organize::view::{InitialView, Layout as InitialLayout, Magnification, Navigation};
 
 pub use pdfcraft_cos::Algorithm;
-pub use pdfcraft_create::{CONVERTIBLE, CreateError, ImageResolution, SourceKind, decode_text, extract_document_text, source_kind};
+pub use pdfcraft_create::{CONVERTIBLE, CreateError, ImageResolution, SourceKind, decode_text, convert_document_to_pdf, extract_document_text, source_kind};
 pub use pdfcraft_edit::added::{text_rect as added_text_rect, text_width as added_text_width};
 pub use pdfcraft_edit::{
     Added, AddedImage, AddedText, Align as TextAlign, Background, Content as AddedContent, Family as FontFamily, HeaderFooter, MarkKind, Watermark,
@@ -4460,19 +4460,10 @@ impl Session {
             SourceKind::Image => self.create_from_images(&[(name.to_string(), bytes.to_vec())]),
             SourceKind::Text => self.create_from_text(title, &decode_text(bytes)),
             SourceKind::Docx => {
-                let text = extract_document_text(name, bytes)
+                // 1:1 conversion via office2pdf (Typst): images, tables, styles, headers/footers preserved.
+                let pdf_bytes = convert_document_to_pdf(name, bytes)
                     .map_err(|e| EditError::Source(e.to_string()))?;
-                match self.create_from_text(title, &text) {
-                    Ok(pdf) => Ok(pdf),
-                    Err(_) => {
-                        // Drop any character Helvetica cannot draw so conversion never fails
-                        let sanitized: String = text
-                            .chars()
-                            .filter(|&c| c == '\n' || c == '\r' || c == '\t' || pdfcraft_fonts::win_ansi_encodable(c))
-                            .collect();
-                        self.create_from_text(title, &sanitized)
-                    }
-                }
+                Ok(Arc::new(pdf_bytes))
             }
         })
         .map_err(|_| EditError::Source(format!("{name}: the file could not be read")))?;
