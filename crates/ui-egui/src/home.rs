@@ -5,7 +5,7 @@ use egui::{Align2, CornerRadius, Rect, Sense, Stroke, vec2};
 use pdfcraft_engine::catalog;
 
 use crate::theme::{self, Tokens};
-use crate::{PdfCraftApp, icons, panels::human_size, widgets};
+use crate::{PdfCraftApp, icons, widgets};
 
 /// A soft shadow that rises on hover and settles when the card is pressed.
 fn card_lift(ui: &egui::Ui, t: &Tokens, rect: Rect, press: theme::Press) {
@@ -157,9 +157,6 @@ fn show_mobile(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         }
                     });
                 });
-
-            ui.add_space(16.0);
-            render_recent_and_privacy(app, ui, &t);
         });
     });
 }
@@ -253,91 +250,8 @@ fn show_desktop(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 ui.add_space(26.0);
                 crate::folders_ui::section(app, ui);
             }
-
-            ui.add_space(26.0);
-            render_recent_and_privacy(app, ui, &t);
         });
     });
-}
-
-fn render_recent_and_privacy(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
-    let mut clear = false;
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(tl!("Recent")).font(theme::semibold(17.0)));
-        if !app.recent.is_empty() {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let resp = widgets::ghost_button(ui, "trash-2", tl!("Clear"));
-                resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Clear Recent Files")));
-                clear = resp.on_hover_text(tl!("Clear Recent Files")).clicked();
-            });
-        }
-    });
-    ui.add_space(8.0);
-    if app.recent.is_empty() {
-        ui.label(egui::RichText::new(tl!("Files you open in PdfCraft appear here. Drop a PDF anywhere to open it.")).color(t.text_muted));
-    }
-    let mut open = None;
-    let mut remove = None;
-    for r in &app.recent {
-        let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 46.0), Sense::click());
-        resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &r.name));
-        let press = theme::Press::track(ui, &resp);
-        let hovered = ui.rect_contains_pointer(rect);
-        if hovered && press.hover < 0.04 && press.down < 0.04 {
-            ui.painter().rect_filled(rect, CornerRadius::same(8), t.hover);
-        } else {
-            press.wash(ui, rect, 8, false);
-        }
-        if hovered {
-            let x_rect = Rect::from_center_size(rect.right_center() - vec2(26.0, 0.0), vec2(28.0, 28.0));
-            let x = ui.interact(x_rect, ui.id().with(("remove-recent", &r.path)), Sense::click());
-            let label = crate::i18n::fmt(tl!("Remove {name} from Recent"), &[("name", &r.name)]);
-            x.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label));
-            if x.hovered() {
-                ui.painter().rect_filled(x_rect, CornerRadius::same(6), t.pressed);
-            }
-            icons::paint(ui, x_rect.shrink(6.0), "x", 16.0, t.icon);
-            if x.on_hover_text(tl!("Remove from Recent")).clicked() {
-                remove = Some(r.path.clone());
-            }
-        }
-        let body = rect.translate(press.offset());
-        icons::paint(
-            ui,
-            Rect::from_min_size(body.min + vec2(10.0, 11.0), vec2(24.0, 24.0)),
-            "file-text",
-            22.0,
-            egui::Color32::from_rgb(0xE0, 0x3E, 0x3E),
-        );
-        let detail = ui.painter().text(
-            body.right_center() - vec2(48.0, 0.0),
-            Align2::RIGHT_CENTER,
-            format!("{}  ·  {}", crate::i18n::trn(crate::i18n::current(), r.pages as u64, "{n} page", "{n} pages"), human_size(r.size)),
-            theme::regular(12.0),
-            t.text_muted,
-        );
-        let width = detail.left() - 16.0 - (body.left() + 46.0);
-        widgets::row_text(ui, body.min + vec2(46.0, 15.0), crate::bidi::visual(&r.name), theme::medium(13.5), t.text, width);
-        widgets::row_text(ui, body.min + vec2(46.0, 32.0), crate::bidi::visual(&r.path), theme::regular(11.0), t.text_faint, width);
-        if theme::hand(resp).on_hover_text(&r.path).clicked() {
-            open = Some(r.path.clone());
-        }
-    }
-    if let Some(p) = open {
-        app.open_recent(&p);
-    }
-    if let Some(p) = remove {
-        app.recent.retain(|r| r.path != p);
-    }
-    if clear {
-        app.execute("file.clear_recent");
-    }
-    ui.add_space(20.0);
-    widgets::section_title(ui, tl!("Privacy"));
-    ui.label(
-        egui::RichText::new(tl!("PdfCraft works offline. No telemetry, no account, and no cloud processing unless you add a provider."))
-            .color(t.text_muted),
-    );
 }
 
 #[cfg(test)]

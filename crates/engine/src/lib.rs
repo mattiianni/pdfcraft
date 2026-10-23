@@ -4462,7 +4462,17 @@ impl Session {
             SourceKind::Docx => {
                 let text = extract_document_text(name, bytes)
                     .map_err(|e| EditError::Source(e.to_string()))?;
-                self.create_from_text(title, &text)
+                match self.create_from_text(title, &text) {
+                    Ok(pdf) => Ok(pdf),
+                    Err(_) => {
+                        // Drop any character Helvetica cannot draw so conversion never fails
+                        let sanitized: String = text
+                            .chars()
+                            .filter(|&c| c == '\n' || c == '\r' || c == '\t' || pdfcraft_fonts::win_ansi_encodable(c))
+                            .collect();
+                        self.create_from_text(title, &sanitized)
+                    }
+                }
             }
         })
         .map_err(|_| EditError::Source(format!("{name}: the file could not be read")))?;

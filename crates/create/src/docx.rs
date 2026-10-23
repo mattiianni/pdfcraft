@@ -326,7 +326,42 @@ fn clean_text(input: &str) -> String {
             }
         } else {
             consecutive_newlines = 0;
-            result.push_str(trimmed);
+            for c in trimmed.chars() {
+                if c == '\t' || pdfcraft_fonts::win_ansi_encodable(c) {
+                    result.push(c);
+                } else {
+                    match c {
+                        '“' | '”' => result.push('"'),
+                        '‘' | '’' => result.push('\''),
+                        '–' | '—' => result.push('-'),
+                        '•' | '·' => {
+                            result.push('-');
+                            result.push(' ');
+                        }
+                        '…' => result.push_str("..."),
+                        '«' | '»' => result.push('"'),
+                        '✓' | '✔' => result.push_str("[x]"),
+                        '✗' | '✘' => result.push_str("[ ]"),
+                        '★' | '☆' => result.push('*'),
+                        '→' | '➔' => result.push_str("->"),
+                        '←' => result.push_str("<-"),
+                        '\u{a0}' => result.push(' '),
+                        _ => {
+                            // Emojis (e.g. 🛒 U+1F6D2) and symbols outside WinAnsi:
+                            // Safely omit emoji/symbols so the standard PDF font renders perfectly
+                            if (0x1F000..=0x1FAFF).contains(&(c as u32))
+                                || (0x2600..=0x27BF).contains(&(c as u32))
+                                || (0x1F300..=0x1F9FF).contains(&(c as u32))
+                            {
+                                // Omit emoji cleanly
+                            } else {
+                                // For other characters, replace with space
+                                result.push(' ');
+                            }
+                        }
+                    }
+                }
+            }
             result.push('\n');
         }
     }
@@ -337,6 +372,19 @@ fn clean_text(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cleans_emojis_and_special_characters() {
+        let text_with_emoji = "Line 1: Panettone 2026\nLine 2: 🛒 Carrello spesa — €50 “offerta”\n";
+        let cleaned = clean_text(text_with_emoji);
+        assert!(!cleaned.contains('🛒'), "Emoji should be removed");
+        assert!(cleaned.contains("Panettone 2026"));
+        assert!(cleaned.contains("Carrello spesa"));
+        // Assert it is 100% win_ansi encodable
+        for c in cleaned.chars() {
+            assert!(c == '\n' || c == '\r' || pdfcraft_fonts::win_ansi_encodable(c), "Character {c} must be encodable");
+        }
+    }
 
     #[test]
     fn extracts_docx_xml() {
